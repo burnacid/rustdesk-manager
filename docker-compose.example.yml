@@ -1,0 +1,41 @@
+# Example stack: your existing hbbs/hbbr plus rustdesk-manager.
+# Copy to docker-compose.yml and adjust. Put a reverse proxy (Caddy, Traefik,
+# nginx) in front of port 21114 for HTTPS, then set the client's
+# "API server" to https://your-domain.
+services:
+  hbbs:
+    image: rustdesk/rustdesk-server:latest
+    command: hbbs
+    volumes: [./hbb:/root]
+    network_mode: host
+    restart: unless-stopped
+
+  hbbr:
+    image: rustdesk/rustdesk-server:latest
+    command: hbbr
+    volumes: [./hbb:/root]
+    network_mode: host
+    restart: unless-stopped
+
+  manager:
+    build: .
+    ports: ["21114:21114"]
+    volumes: [./manager-data:/data]
+    environment:
+      PUBLIC_URL: http://your-server:21114   # external URL, used for SSO redirects
+      ADMIN_INITIAL_PASSWORD: change-me       # first start only
+      DB_DRIVER: sqlite                       # or mysql (see below)
+      # DB_DRIVER: mysql
+      # DB_DSN: rustdesk:secret@tcp(mariadb:3306)/rustdesk?parseTime=true&charset=utf8mb4
+    restart: unless-stopped
+
+  # Optional MariaDB instead of SQLite
+  # mariadb:
+  #   image: mariadb:11
+  #   environment:
+  #     MARIADB_DATABASE: rustdesk
+  #     MARIADB_USER: rustdesk
+  #     MARIADB_PASSWORD: secret
+  #     MARIADB_RANDOM_ROOT_PASSWORD: "1"
+  #   volumes: [./mariadb:/var/lib/mysql]
+  #   restart: unless-stopped
