@@ -20,7 +20,7 @@ services:
   manager:
     build: .
     ports: ["21114:21114"]
-    volumes: [./manager-data:/data]
+    volumes: [manager-data:/data]   # a named volume: the server runs as a non-root user
     environment:
       PUBLIC_URL: http://your-server:21114   # external URL, used for SSO redirects
       ADMIN_INITIAL_PASSWORD: change-me       # first start only
@@ -40,3 +40,6 @@ services:
   #     MARIADB_RANDOM_ROOT_PASSWORD: "1"
   #   volumes: [./mariadb:/var/lib/mysql]
   #   restart: unless-stopped
+
+volumes:
+  manager-data:

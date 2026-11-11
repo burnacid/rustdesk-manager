@@ -47,7 +47,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("DB_DRIVER must be sqlite or mysql, got %q", c.DBDriver)
 	}
 	if err := os.MkdirAll(c.RecordingsDir(), 0o750); err != nil {
-		return nil, fmt.Errorf("create data dir: %w", err)
+		return nil, fmt.Errorf("create data dir: %w (DATA_DIR=%s must be writable by the user the server runs as; "+
+			"the Docker image runs as uid 65532, so use a named volume or chown a mounted folder to 65532)", err, c.DataDir)
 	}
 	if c.DBDriver == "sqlite" && c.DBDSN == "" {
 		c.DBDSN = filepath.Join(c.DataDir, "rustdesk-manager.db")

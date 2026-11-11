@@ -39,6 +39,9 @@ Open `http://your-server:21114` and sign in as `admin` with the password you set
 Without `ADMIN_INITIAL_PASSWORD`, a random password is printed once in the log
 (`docker compose logs manager`).
 
+The server runs as a non-root user (uid 65532) and keeps its data in the
+`manager-data` volume. To use a host folder instead, `chown 65532:65532` it first.
+
 The example runs `hbbs`, `hbbr` and RustDesk Manager together. If your ID and relay
 servers already run elsewhere, keep only the `manager` service.
 
@@ -139,7 +142,8 @@ binding** on its device page.
 
 ## Backups and upgrades
 
-Back up `DATA_DIR` (the `manager-data` folder in the Docker example), at least:
+Back up `DATA_DIR` (the `manager-data` volume in the Docker example; copy it out with
+`docker compose cp manager:/data ./backup`), at least:
 - `rustdesk-manager.db` (when using SQLite; with MariaDB/MySQL, back up that database);
 - `session.secret`: the key that encrypts saved address book passwords, 2FA secrets
   and SSO client secrets. **Without it those can't be read**;
@@ -193,6 +197,13 @@ cd web && npm install && npm run build   # the Go binary embeds web/dist, so bui
 go run ./cmd/server                      # API and web console on :21114
 cd web && npm run dev                    # optional: live-reloading UI on :5173, proxies to :21114
 go test ./...                            # API tests (about 30 s; the 2FA test waits for a fresh code)
+```
+
+To run the same tests against MariaDB/MySQL (each test gets its own database):
+
+```sh
+docker run -d --name rdm-mariadb -p 127.0.0.1:3307:3306 -e MARIADB_ROOT_PASSWORD=testroot mariadb:11
+RDM_TEST_MYSQL='root:testroot@tcp(127.0.0.1:3307)/' go test ./...
 ```
 
 The client API mirrors the RustDesk client source. To check request and response

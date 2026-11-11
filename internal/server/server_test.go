@@ -1,14 +1,20 @@
 package server
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
 	"rustdesk-manager/internal/config"
@@ -30,11 +36,36 @@ func (e *env) cfgDataDir() string { return e.dir }
 
 func newJar() (http.CookieJar, error) { return cookiejar.New(nil) }
 
+// useMySQL points the test at a fresh MariaDB/MySQL database when
+// RDM_TEST_MYSQL is set to a server DSN without database name, e.g.
+// RDM_TEST_MYSQL="root:pw@tcp(127.0.0.1:3307)/". The database is dropped afterwards.
+func useMySQL(t *testing.T) {
+	base := os.Getenv("RDM_TEST_MYSQL")
+	if base == "" {
+		return
+	}
+	admin, err := sql.Open("mysql", base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := fmt.Sprintf("rdm_test_%d_%d", time.Now().UnixNano(), rand.IntN(1e6))
+	if _, err := admin.Exec("CREATE DATABASE " + name + " CHARACTER SET utf8mb4"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = admin.Exec("DROP DATABASE " + name)
+		admin.Close()
+	})
+	t.Setenv("DB_DRIVER", "mysql")
+	t.Setenv("DB_DSN", base+name+"?parseTime=true&charset=utf8mb4&loc=UTC")
+}
+
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("DATA_DIR", dir)
 	t.Setenv("ADMIN_INITIAL_PASSWORD", "admin-pass")
+	useMySQL(t)
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
