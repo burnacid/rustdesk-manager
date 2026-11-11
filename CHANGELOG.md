@@ -9,6 +9,22 @@ next version's section (see "Releasing" in the README).
 
 ## [Unreleased]
 
+### Added
+- **Session notes**: the note the RustDesk app asks for at the end of a session is
+  saved with the session in the audit log (`GET /api/audit/conn/active`,
+  `PUT /api/audit`).
+- **Passkeys** for the web console: add them under My account, then sign in without a
+  password or 2FA code.
+- **API tokens** for scripts: call the admin API with `Authorization: Bearer`.
+- **Admin action log**: every change made in the console or with an API token, with
+  user, IP and result; filter and CSV export under Audit log → Admin actions.
+- **Bulk device actions**: set group, owner or strategy, disconnect or delete several
+  devices at once.
+- **Prometheus metrics** at `/metrics`, turned on with `METRICS_TOKEN`.
+- `POST /api/switch-grant` answers the desktop app's switch-sides call, so it no longer
+  logs errors.
+- `docs/real-client-test.md`: a checklist for testing with the standard RustDesk app.
+
 ## [1.0.0] - 2026-11-11
 
 ### Added

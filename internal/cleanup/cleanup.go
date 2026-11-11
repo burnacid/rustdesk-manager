@@ -50,6 +50,7 @@ func Once(gdb *gorm.DB, store *settings.Store, recordingsDir string, now time.Ti
 		del("sessions", gdb.Where("started_at < ?", cutoff).Delete(&db.AuditConn{}))
 		del("file transfers", gdb.Where("created_at < ?", cutoff).Delete(&db.AuditFile{}))
 		del("alarms", gdb.Where("created_at < ?", cutoff).Delete(&db.AuditAlarm{}))
+		del("admin actions", gdb.Where("created_at < ?", cutoff).Delete(&db.AdminEvent{}))
 	}
 	if days := store.Int(settings.RecordingRetentionDays); days > 0 {
 		var old []db.Recording

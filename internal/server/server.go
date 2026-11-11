@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -32,6 +33,7 @@ type Server struct {
 	client   *clientapi.API
 	admin    *adminapi.API
 	settings *settings.Store
+	live     *live.State
 }
 
 // StartBackground runs housekeeping (old data cleanup) until ctx ends.
@@ -48,12 +50,16 @@ func New(cfg *config.Config, gdb *gorm.DB) *Server {
 	strat := strategy.New(gdb)
 	store := settings.New(gdb)
 	ssoSvc := sso.New(gdb, box, cfg.PublicURL)
+	passkeys, err := auth.NewPasskeys(gdb, cfg.PublicURL)
+	if err != nil {
+		slog.Warn("passkeys disabled", "err", err)
+	}
 	client := clientapi.New(clientapi.Deps{Cfg: cfg, DB: gdb, Live: state, Limiter: limiter, Abooks: abooks,
 		Strategies: strat, Box: box, Settings: store, SSO: ssoSvc})
 	admin := adminapi.New(adminapi.Deps{Cfg: cfg, DB: gdb, Live: state, Devices: client,
-		Limiter: limiter, Abooks: abooks, Strategies: strat, Box: box, Settings: store, SSO: ssoSvc})
+		Limiter: limiter, Abooks: abooks, Strategies: strat, Box: box, Settings: store, SSO: ssoSvc, Passkeys: passkeys})
 	ssoSvc.SetHooks(sso.Hooks{ClientLogin: client.IssueClientLogin, WebLogin: admin.StartWebSession})
-	return &Server{cfg: cfg, db: gdb, client: client, admin: admin, settings: store}
+	return &Server{cfg: cfg, db: gdb, client: client, admin: admin, settings: store, live: state}
 }
 
 func (s *Server) Router() http.Handler {
@@ -64,6 +70,7 @@ func (s *Server) Router() http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 
+	r.Get("/metrics", s.metrics)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	})

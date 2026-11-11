@@ -69,6 +69,7 @@ func (a *API) Routes(r chi.Router) {
 	r.Post("/record", a.record)
 	r.Post("/devices/cli", a.assignDevice) // deploy token, not a user login
 	r.Post("/devices/deploy", a.deployDevice)
+	r.Post("/switch-grant", a.switchGrant)
 
 	// User side: the RustDesk app of a person who logs in.
 	r.Post("/login", a.login)
@@ -84,6 +85,8 @@ func (a *API) Routes(r chi.Router) {
 		r.Get("/users", a.accessibleUsers)
 		r.Get("/peers", a.accessiblePeers)
 		r.Get("/device-group/accessible", a.accessibleDeviceGroups)
+		r.Get("/audit/conn/active", a.auditConnActive)
+		r.Put("/audit", a.auditNote)
 
 		r.Post("/ab/settings", a.abSettings)
 		r.Post("/ab/personal", a.abPersonal)

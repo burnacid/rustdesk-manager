@@ -4,7 +4,7 @@ import { Download } from "lucide-react";
 import { api, qs, type Alarm, type FileAudit, type Paged, type Session } from "../lib/api";
 import { alarmTypes, fileDirections, label } from "../lib/labels";
 import { bytes, dateTime } from "../lib/format";
-import { Card, ErrorText, Input, Loading, PageHeader, Pagination, Table, Td } from "../components/ui";
+import { Badge, Card, ErrorText, Input, Loading, PageHeader, Pagination, Table, Td } from "../components/ui";
 import { SessionsTable } from "../components/SessionsTable";
 
 const PAGE_SIZE = 50;
@@ -12,6 +12,7 @@ const tabs = [
   { key: "sessions", label: "Sessions" },
   { key: "files", label: "File transfers" },
   { key: "alarms", label: "Alarms" },
+  { key: "admin", label: "Admin actions" },
 ] as const;
 type Tab = (typeof tabs)[number]["key"];
 
@@ -19,7 +20,12 @@ export function Audit() {
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") as Tab) || "sessions";
   const page = Number(params.get("page") ?? 1);
-  const filters = { device: params.get("device") ?? "", from: params.get("from") ?? "", to: params.get("to") ?? "" };
+  const isAdmin = tab === "admin";
+  const filters: Record<string, string> = {
+    ...(isAdmin ? { user: params.get("user") ?? "" } : { device: params.get("device") ?? "" }),
+    from: params.get("from") ?? "",
+    to: params.get("to") ?? "",
+  };
 
   const set = (k: string, v: string) => {
     const p = new URLSearchParams(params);
@@ -42,7 +48,8 @@ export function Audit() {
           </a>
         }
       >
-        Sessions, file transfers and security alarms reported by your devices. The export uses the current tab and filters.
+        Sessions, file transfers and security alarms reported by your devices, and changes made in this console or with API tokens. The
+        export uses the current tab and filters.
       </PageHeader>
       <div className="mb-4 flex gap-1 border-b border-slate-200 dark:border-slate-800">
         {tabs.map((t) => (
@@ -59,19 +66,72 @@ export function Audit() {
       </div>
       <Card>
         <div className="grid gap-2 border-b border-slate-200 p-3 sm:grid-cols-3 dark:border-slate-800">
-          <Input placeholder="Device ID" value={filters.device} onChange={(e) => set("device", e.target.value.trim())} aria-label="Device ID" />
+          {isAdmin ? (
+            <Input placeholder="Username" value={filters.user ?? ""} onChange={(e) => set("user", e.target.value.trim())} aria-label="Username" />
+          ) : (
+            <Input placeholder="Device ID" value={filters.device ?? ""} onChange={(e) => set("device", e.target.value.trim())} aria-label="Device ID" />
+          )}
           <Input type="date" value={filters.from} onChange={(e) => set("from", e.target.value)} aria-label="From date" />
           <Input type="date" value={filters.to} onChange={(e) => set("to", e.target.value)} aria-label="To date" />
         </div>
         {tab === "sessions" && <Sessions filters={filters} page={page} onPage={(p) => set("page", String(p))} />}
         {tab === "files" && <Files filters={filters} page={page} onPage={(p) => set("page", String(p))} />}
         {tab === "alarms" && <Alarms filters={filters} page={page} onPage={(p) => set("page", String(p))} />}
+        {tab === "admin" && <AdminActions filters={filters} page={page} onPage={(p) => set("page", String(p))} />}
       </Card>
     </>
   );
 }
 
 type ListProps = { filters: Record<string, string>; page: number; onPage: (p: number) => void };
+
+type AdminEvent = {
+  id: number;
+  user_name: string;
+  method: string;
+  route: string;
+  action: string;
+  target_id: string;
+  status: number;
+  ip: string;
+  via: "web" | "api";
+  created_at: string;
+};
+
+function AdminActions(props: ListProps) {
+  const q = useAuditList<AdminEvent>("admin", props);
+  return (
+    <ListState q={q}>
+      {q.data && (
+        <>
+          <Table head={["User", "Action", "Result", "From", "Time"]} empty={q.data.data.length === 0}>
+            {q.data.data.map((e) => (
+              <tr key={e.id}>
+                <Td className="font-medium">{e.user_name || "—"}</Td>
+                <Td>
+                  <div>
+                    {e.action}
+                    {e.target_id && <span className="text-slate-500"> #{e.target_id}</span>}
+                  </div>
+                  <div className="font-mono text-xs text-slate-500">
+                    {e.method} {e.route}
+                  </div>
+                </Td>
+                <Td>{e.status < 400 ? <Badge tone="green">OK</Badge> : <Badge tone="red">{e.status}</Badge>}</Td>
+                <Td>
+                  <div>{e.ip}</div>
+                  <div className="text-xs text-slate-500">{e.via === "api" ? "API token" : "Web console"}</div>
+                </Td>
+                <Td className="whitespace-nowrap">{dateTime(e.created_at)}</Td>
+              </tr>
+            ))}
+          </Table>
+          <Pagination page={props.page} pageSize={PAGE_SIZE} total={q.data.total} onPage={props.onPage} />
+        </>
+      )}
+    </ListState>
+  );
+}
 
 function useAuditList<T>(kind: string, { filters, page }: ListProps) {
   return useQuery({

@@ -48,7 +48,8 @@ type UserGroupAccess struct {
 type Token struct {
 	ID         uint   `gorm:"primaryKey"`
 	Hash       string `gorm:"size:64;uniqueIndex;not null"`
-	Kind       string `gorm:"size:16;index"` // "client" or "web"
+	Kind       string `gorm:"size:16;index"` // "client", "web" or "api"
+	Name       string `gorm:"size:191"`      // label of an API token
 	UserID     uint   `gorm:"index;not null"`
 	User       User
 	DeviceID   string `gorm:"size:191"` // RustDesk ID of the controlling client
@@ -294,6 +295,31 @@ type DeployToken struct {
 	CreatedAt time.Time
 }
 
+// Passkey is a WebAuthn credential for signing in to the web console.
+type Passkey struct {
+	ID           uint   `gorm:"primaryKey"`
+	UserID       uint   `gorm:"index;not null"`
+	Name         string `gorm:"size:191"`
+	CredentialID string `gorm:"size:191;uniqueIndex;not null"` // base64url
+	Data         string `gorm:"type:text"`                     // webauthn.Credential as JSON
+	LastUsedAt   *time.Time
+	CreatedAt    time.Time
+}
+
+// AdminEvent records one change made through the admin API (never the request body).
+type AdminEvent struct {
+	ID        uint   `gorm:"primaryKey"`
+	UserID    uint   `gorm:"index"`
+	UserName  string `gorm:"size:191"`
+	Method    string `gorm:"size:8"`
+	Route     string `gorm:"size:191"` // chi route pattern, e.g. /devices/{id}
+	TargetID  string `gorm:"size:191"`
+	Status    int
+	IP        string    `gorm:"size:64"`
+	Via       string    `gorm:"size:8"` // "web" or "api"
+	CreatedAt time.Time `gorm:"index"`
+}
+
 // Setting is a simple key/value store for runtime options edited in the UI.
 type Setting struct {
 	Key   string `gorm:"size:191;primaryKey"`
@@ -311,5 +337,6 @@ func allModels() []any {
 		&AddressBook{}, &AbShare{}, &AbPeer{}, &AbTag{}, &LegacyAb{},
 		&AuditConn{}, &AuditFile{}, &AuditAlarm{}, &Recording{},
 		&OIDCProvider{}, &OIDCIdentity{}, &OIDCSession{}, &DeployToken{}, &Setting{},
+		&Passkey{}, &AdminEvent{},
 	}
 }

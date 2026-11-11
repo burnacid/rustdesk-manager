@@ -45,6 +45,7 @@ type API struct {
 	settings *settings.Store
 	sso      *sso.Service
 	pending  *auth.Pending
+	passkeys *auth.Passkeys // nil when PUBLIC_URL can't be used as a relying party
 }
 
 // Deps are the shared services the admin API uses.
@@ -59,12 +60,13 @@ type Deps struct {
 	Box        *secret.Box
 	Settings   *settings.Store
 	SSO        *sso.Service
+	Passkeys   *auth.Passkeys
 }
 
 func New(d Deps) *API {
 	return &API{cfg: d.Cfg, db: d.DB, live: d.Live, devices: d.Devices, limiter: d.Limiter,
 		abooks: d.Abooks, strat: d.Strategies, box: d.Box, settings: d.Settings, sso: d.SSO,
-		pending: auth.NewPending()}
+		pending: auth.NewPending(), passkeys: d.Passkeys}
 }
 
 func (a *API) Routes(r chi.Router) {
@@ -74,19 +76,25 @@ func (a *API) Routes(r chi.Router) {
 	r.Post("/auth/logout", a.logout)
 	r.Get("/auth/sso", a.ssoProviders)
 	r.Get("/auth/sso/{name}", a.ssoStart)
+	r.Post("/auth/passkey/begin", a.passkeyLoginBegin)
+	r.Post("/auth/passkey/finish", a.passkeyLoginFinish)
 
 	// Any signed-in user: their own account.
 	r.Group(func(r chi.Router) {
-		r.Use(a.requireUser)
+		r.Use(a.requireUser, a.recordEvents)
 		r.Get("/auth/me", a.me)
 		r.Post("/me/password", a.changeOwnPassword)
 		r.Post("/me/totp/setup", a.totpSetup)
 		r.Post("/me/totp/enable", a.totpEnable)
 		r.Post("/me/totp/disable", a.totpDisable)
+		r.Get("/me/passkeys", a.listPasskeys)
+		r.Post("/me/passkeys/register/begin", a.passkeyRegisterBegin)
+		r.Post("/me/passkeys/register/finish", a.passkeyRegisterFinish)
+		r.Delete("/me/passkeys/{id}", a.deletePasskey)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(a.requireAdmin)
+		r.Use(a.requireAdmin, a.recordEvents)
 		r.Get("/dashboard", a.dashboard)
 
 		r.Get("/settings", a.getSettings)
@@ -98,11 +106,15 @@ func (a *API) Routes(r chi.Router) {
 		r.Get("/deploy-tokens", a.listDeployTokens)
 		r.Post("/deploy-tokens", a.createDeployToken)
 		r.Delete("/deploy-tokens/{id}", a.deleteDeployToken)
+		r.Get("/api-tokens", a.listAPITokens)
+		r.Post("/api-tokens", a.createAPIToken)
+		r.Delete("/api-tokens/{id}", a.deleteAPIToken)
 		r.Get("/recordings", a.listRecordings)
 		r.Get("/recordings/{id}/file", a.recordingFile)
 		r.Delete("/recordings/{id}", a.deleteRecording)
 
 		r.Get("/devices", a.listDevices)
+		r.Post("/devices/bulk", a.bulkDevices)
 		r.Get("/devices/{id}", a.getDevice)
 		r.Patch("/devices/{id}", a.updateDevice)
 		r.Delete("/devices/{id}", a.deleteDevice)
@@ -147,6 +159,7 @@ func (a *API) Routes(r chi.Router) {
 		r.Get("/audit/conns", a.listAuditConns)
 		r.Get("/audit/files", a.listAuditFiles)
 		r.Get("/audit/alarms", a.listAuditAlarms)
+		r.Get("/audit/admin", a.listAdminEvents)
 		r.Get("/audit/{kind}/export", a.exportAudit)
 	})
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
@@ -156,7 +169,8 @@ func (a *API) Routes(r chi.Router) {
 
 func csrfGuard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get(csrfHeader) == "" {
+		// Bearer API tokens aren't sent automatically by browsers, so they need no CSRF check.
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Header.Get(csrfHeader) == "" && !hasBearer(r) {
 			httpx.Error(w, http.StatusForbidden, "missing "+csrfHeader+" header")
 			return
 		}
@@ -192,9 +206,16 @@ func (a *API) requireUser(next http.Handler) http.Handler {
 	})
 }
 
+// requireAdmin accepts the session cookie, or an API token as "Authorization: Bearer".
 func (a *API) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u := a.sessionUser(r)
+		var u *db.User
+		if hasBearer(r) {
+			u = a.apiTokenUser(r)
+			r = r.WithContext(context.WithValue(r.Context(), viaKey{}, "api"))
+		} else {
+			u = a.sessionUser(r)
+		}
 		if u == nil {
 			httpx.Error(w, http.StatusUnauthorized, "not logged in")
 			return
