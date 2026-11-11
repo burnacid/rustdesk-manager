@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -13,9 +14,15 @@ import (
 	"rustdesk-manager/internal/config"
 	"rustdesk-manager/internal/db"
 	"rustdesk-manager/internal/server"
+	"rustdesk-manager/internal/version"
 )
 
 func main() {
+	// Commands that need no configuration or database.
+	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version") {
+		fmt.Println("rustdesk-manager", version.Version)
+		return
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("config", "err", err)
@@ -47,7 +54,7 @@ func main() {
 	defer stop()
 	app.StartBackground(ctx)
 	go func() {
-		slog.Info("listening", "addr", cfg.Listen, "db", cfg.DBDriver)
+		slog.Info("listening", "version", version.Version, "addr", cfg.Listen, "db", cfg.DBDriver)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("http server", "err", err)
 			os.Exit(1)

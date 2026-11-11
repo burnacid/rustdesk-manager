@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { LogOut, Menu, UserCircle, X } from "lucide-react";
 import { navItems } from "../nav";
-import { AuthGate, useLogout, useUser } from "../auth";
+import { AuthGate, useLogout, useServerVersion, useUser } from "../auth";
 import { Account } from "../pages/Account";
 import { Logo } from "./Logo";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -25,6 +25,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 function NavLinks() {
   const user = useUser();
   const logout = useLogout();
+  const version = useServerVersion();
   // Users who aren't admins only manage their own account here.
   const items = user.is_admin ? navItems : [];
   return (
@@ -48,6 +49,7 @@ function NavLinks() {
         <p className="truncate px-3 pt-1 text-xs text-slate-500">
           {user.display_name || user.name}
           {user.is_admin && " · admin"}
+          {version && <span className="block">RustDesk Manager {version === "dev" ? "(development build)" : `v${version}`}</span>}
         </p>
       </div>
     </nav>

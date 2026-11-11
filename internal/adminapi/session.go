@@ -15,6 +15,7 @@ import (
 	"rustdesk-manager/internal/db"
 	"rustdesk-manager/internal/httpx"
 	"rustdesk-manager/internal/sso"
+	"rustdesk-manager/internal/version"
 )
 
 func logError(err error) { slog.Error("admin api", "err", err) }
@@ -172,5 +173,5 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 
 // GET /admin/api/auth/me
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
-	httpx.JSON(w, http.StatusOK, map[string]any{"user": toUserJSON(currentUser(r))})
+	httpx.JSON(w, http.StatusOK, map[string]any{"user": toUserJSON(currentUser(r)), "version": version.Version})
 }

@@ -162,6 +162,33 @@ docker compose exec manager /rustdesk-manager reset-password admin      # prints
 docker compose exec manager /rustdesk-manager reset-password admin 'my new password'
 ```
 
+## Versions and the Docker image
+
+The current version is in `VERSION`; what changed is in [CHANGELOG.md](CHANGELOG.md).
+The running version shows at the bottom of the web console menu, in the start-up
+log, and with `docker compose exec manager /rustdesk-manager version`.
+
+Build the image on any machine with Docker:
+
+```sh
+docker build --build-arg VERSION=$(cat VERSION) -t rustdesk-manager:$(cat VERSION) -t rustdesk-manager:latest .
+```
+
+(PowerShell: `$v = Get-Content VERSION`, then use `$v` instead of `$(cat VERSION)`.)
+
+To move it to a server without a registry, save it to a file, copy that over and
+load it there:
+
+```sh
+docker save rustdesk-manager:0.1.0 rustdesk-manager:latest | gzip > rustdesk-manager-0.1.0.tar.gz
+# on the server:
+docker load -i rustdesk-manager-0.1.0.tar.gz
+docker compose up -d           # uses image: rustdesk-manager:latest
+```
+
+The image is built for the processor of the machine that builds it (usually
+`linux/amd64`). For an ARM server such as a Raspberry Pi, add `--platform linux/arm64`.
+
 ## Configuration
 
 | Variable | Default | Meaning |

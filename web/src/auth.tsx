@@ -33,7 +33,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (me.isPending) return <Loading />;
   if (!me.data || (me.error instanceof ApiError && me.error.status === 401)) {
-    return <Login onLoggedIn={(user) => qc.setQueryData(["me"], { user })} />;
+    return (
+      <Login
+        onLoggedIn={(user) => {
+          qc.setQueryData(["me"], { user });
+          qc.invalidateQueries({ queryKey: ["me"] }); // fetch the full reply (with the server version)
+        }}
+      />
+    );
   }
   return <UserContext.Provider value={me.data.user}>{children}</UserContext.Provider>;
 }
@@ -44,6 +51,12 @@ export function useLogout() {
     await api("/auth/logout", { method: "POST" }).catch(() => {});
     signedOut(qc);
   };
+}
+
+/** The server's version, from the same /auth/me reply. */
+export function useServerVersion(): string | undefined {
+  const me = useQuery({ queryKey: ["me"], queryFn: () => api<{ user: User; version?: string }>("/auth/me"), enabled: false });
+  return (me.data as { version?: string } | null | undefined)?.version;
 }
 
 /** Refresh the signed-in user (e.g. after turning 2FA on). */

@@ -13,6 +13,7 @@ import (
 
 const usage = `Usage:
   rustdesk-manager                                 start the server
+  rustdesk-manager version                         print the version
   rustdesk-manager reset-password <user> [new]     set a new password (random if omitted)
                                                    and sign the user out everywhere
 `
