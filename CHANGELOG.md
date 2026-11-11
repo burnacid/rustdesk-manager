@@ -9,6 +9,8 @@ next version's section (see "Releasing" in the README).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-11
+
 ### Added
 - **Session notes**: the note the RustDesk app asks for at the end of a session is
   saved with the session in the audit log (`GET /api/audit/conn/active`,
@@ -67,6 +69,7 @@ MariaDB), but has not yet been tried against a real RustDesk client.
 - `reset-password` and `version` commands.
 - SQLite or MariaDB/MySQL; a Docker image running as a non-root user.
 
-[Unreleased]: https://github.com/burnacid/rustdesk-manager/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/burnacid/rustdesk-manager/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/burnacid/rustdesk-manager/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/burnacid/rustdesk-manager/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/burnacid/rustdesk-manager/releases/tag/v0.1.0
