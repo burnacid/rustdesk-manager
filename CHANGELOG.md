@@ -11,12 +11,6 @@ next version's section (see "Releasing" in the README).
 
 ## [1.1.0] - 2026-11-11
 
-### Changed
-- Rebump version
-- Admin logs, passkeys and tokens
-
-## [1.1.0] - 2026-11-11
-
 ### Added
 - **Session notes**: the note the RustDesk app asks for at the end of a session is
   saved with the session in the audit log (`GET /api/audit/conn/active`,
