@@ -296,6 +296,9 @@ func (a *API) deleteUser(w http.ResponseWriter, r *http.Request) {
 		if err := tx.Model(&db.Device{}).Where("user_id = ?", u.ID).Update("user_id", nil).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("user_id = ?", u.ID).Delete(&db.Passkey{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("user_id = ?", u.ID).Delete(&db.Token{}).Error; err != nil {
 			return err
 		}
@@ -329,7 +332,7 @@ func (a *API) listUserSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var rows []db.Token
-	a.db.Where("user_id = ?", u.ID).Order("last_used_at DESC").Find(&rows)
+	a.db.Where("user_id = ? AND kind <> ?", u.ID, auth.KindAPI).Order("last_used_at DESC").Find(&rows)
 	cur := ""
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		cur = auth.HashToken(c.Value)

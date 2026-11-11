@@ -12,6 +12,7 @@ import (
 	"rustdesk-manager/internal/auth"
 	"rustdesk-manager/internal/db"
 	"rustdesk-manager/internal/httpx"
+	"rustdesk-manager/internal/metrics"
 )
 
 // Login flow of the client: flutter/lib/common/widgets/login.dart and
@@ -83,6 +84,7 @@ func (a *API) loginPassword(w http.ResponseWriter, r *http.Request, req loginReq
 		if errors.Is(err, auth.ErrInvalid) {
 			a.limiter.Fail(ipKey)
 			a.limiter.Fail(userKey)
+			metrics.Login("client", false)
 			slog.Warn("client login failed", "user", req.Username, "ip", clientIP(r), "device", req.ID)
 			httpx.Error(w, http.StatusUnauthorized, "Wrong credentials")
 			return
@@ -137,6 +139,7 @@ func (a *API) finishLogin(w http.ResponseWriter, r *http.Request, u *db.User, de
 		httpx.Error(w, http.StatusInternalServerError, "Server error")
 		return
 	}
+	metrics.Login("client", true)
 	slog.Info("client login", "user", u.Name, "ip", clientIP(r), "device", deviceID)
 	httpx.JSON(w, http.StatusOK, body)
 }

@@ -9,6 +9,24 @@ next version's section (see "Releasing" in the README).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-11
+
+### Added
+- **Session notes**: the note the RustDesk app asks for at the end of a session is
+  saved with the session in the audit log (`GET /api/audit/conn/active`,
+  `PUT /api/audit`).
+- **Passkeys** for the web console: add them under My account, then sign in without a
+  password or 2FA code.
+- **API tokens** for scripts: call the admin API with `Authorization: Bearer`.
+- **Admin action log**: every change made in the console or with an API token, with
+  user, IP and result; filter and CSV export under Audit log → Admin actions.
+- **Bulk device actions**: set group, owner or strategy, disconnect or delete several
+  devices at once.
+- **Prometheus metrics** at `/metrics`, turned on with `METRICS_TOKEN`.
+- `POST /api/switch-grant` answers the desktop app's switch-sides call, so it no longer
+  logs errors.
+- `docs/real-client-test.md`: a checklist for testing with the standard RustDesk app.
+
 ## [1.0.0] - 2026-11-11
 
 ### Added
@@ -51,6 +69,7 @@ MariaDB), but has not yet been tried against a real RustDesk client.
 - `reset-password` and `version` commands.
 - SQLite or MariaDB/MySQL; a Docker image running as a non-root user.
 
-[Unreleased]: https://github.com/burnacid/rustdesk-manager/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/burnacid/rustdesk-manager/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/burnacid/rustdesk-manager/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/burnacid/rustdesk-manager/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/burnacid/rustdesk-manager/releases/tag/v0.1.0

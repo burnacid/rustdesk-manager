@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
-import { api, qs, type Device, type DeviceGroup, type Paged } from "../lib/api";
+import { api, qs, type AdminUser, type Device, type DeviceGroup, type Paged, type Strategy } from "../lib/api";
 import { osShort, timeAgo } from "../lib/format";
-import { Badge, Card, ErrorText, Input, Loading, OnlineBadge, PageHeader, Pagination, Select, Table, Td } from "../components/ui";
+import { Badge, Button, Card, ErrorText, Input, Loading, OnlineBadge, PageHeader, Pagination, Select, Table, Td } from "../components/ui";
 
 const PAGE_SIZE = 50;
 
@@ -30,6 +30,25 @@ export function Devices() {
     placeholderData: keepPreviousData,
     refetchInterval: 15000,
   });
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const pageIDs = list.data?.data.map((d) => d.id) ?? [];
+  const allChecked = pageIDs.length > 0 && pageIDs.every((id) => selected.has(id));
+  const toggle = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of pageIDs) {
+        if (allChecked) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
 
   return (
     <>
@@ -60,6 +79,7 @@ export function Devices() {
             ))}
           </Select>
         </div>
+        {selected.size > 0 && <BulkBar ids={[...selected]} groups={groups.data ?? []} onDone={() => setSelected(new Set())} />}
         {list.isPending ? (
           <Loading />
         ) : list.error ? (
@@ -68,9 +88,30 @@ export function Devices() {
           </div>
         ) : (
           <>
-            <Table head={["Device", "Status", "OS", "Owner", "Group", "Version", "Last seen"]} empty={list.data.data.length === 0}>
+            <Table
+              head={[
+                <input key="all" type="checkbox" className="size-4 align-middle" checked={allChecked} onChange={toggleAll} aria-label="Select all on this page" />,
+                "Device",
+                "Status",
+                "OS",
+                "Owner",
+                "Group",
+                "Version",
+                "Last seen",
+              ]}
+              empty={list.data.data.length === 0}
+            >
               {list.data.data.map((d) => (
                 <tr key={d.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <Td className="w-8">
+                    <input
+                      type="checkbox"
+                      className="size-4 align-middle"
+                      checked={selected.has(d.id)}
+                      onChange={() => toggle(d.id)}
+                      aria-label={`Select ${d.hostname || d.rustdesk_id}`}
+                    />
+                  </Td>
                   <Td>
                     <Link to={`/devices/${d.id}`} className="font-medium text-teal-700 hover:underline dark:text-teal-400">
                       {d.hostname || d.rustdesk_id}
@@ -103,5 +144,85 @@ export function Devices() {
         )}
       </Card>
     </>
+  );
+}
+
+type BulkAction = "set_group" | "set_user" | "set_strategy" | "disconnect" | "delete";
+
+function BulkBar({ ids, groups, onDone }: { ids: number[]; groups: DeviceGroup[]; onDone: () => void }) {
+  const qc = useQueryClient();
+  const [action, setAction] = useState<BulkAction>("set_group");
+  const [value, setValue] = useState("0");
+  const [result, setResult] = useState<string | null>(null);
+  const users = useQuery({
+    queryKey: ["users", "all"],
+    queryFn: () => api<Paged<AdminUser>>("/users?pageSize=500"),
+    enabled: action === "set_user",
+  });
+  const strategies = useQuery({ queryKey: ["strategies"], queryFn: () => api<Strategy[]>("/strategies"), enabled: action === "set_strategy" });
+  const options: { id: number; name: string }[] =
+    action === "set_group" ? groups : action === "set_user" ? (users.data?.data ?? []) : action === "set_strategy" ? (strategies.data ?? []) : [];
+  const needsValue = action.startsWith("set_");
+
+  const run = useMutation({
+    mutationFn: () => api<{ affected: number }>("/devices/bulk", { method: "POST", body: { ids, action, value: Number(value) } }),
+    onSuccess: (res) => {
+      setResult(
+        action === "disconnect"
+          ? `Disconnect sent to ${res.affected} device(s) with open sessions.`
+          : action === "delete"
+            ? `Deleted ${res.affected} device(s).`
+            : `Updated ${res.affected} device(s).`,
+      );
+      qc.invalidateQueries({ queryKey: ["devices"] });
+      if (action === "delete") onDone();
+    },
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-teal-50 p-3 text-sm dark:border-slate-800 dark:bg-teal-950/40">
+      <span className="font-medium">{ids.length} selected</span>
+      <Select
+        value={action}
+        onChange={(e) => {
+          setAction(e.target.value as BulkAction);
+          setValue("0");
+          setResult(null);
+        }}
+        aria-label="Action"
+      >
+        <option value="set_group">Set group</option>
+        <option value="set_user">Set owner</option>
+        <option value="set_strategy">Set strategy</option>
+        <option value="disconnect">Disconnect sessions</option>
+        <option value="delete">Delete</option>
+      </Select>
+      {needsValue && (
+        <Select value={value} onChange={(e) => setValue(e.target.value)} aria-label="Value">
+          <option value="0">{action === "set_strategy" ? "Inherit from group" : "None"}</option>
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </Select>
+      )}
+      <Button
+        variant={action === "delete" ? "danger" : "primary"}
+        size="sm"
+        disabled={run.isPending}
+        onClick={() => {
+          if (action === "delete" && !confirm(`Delete ${ids.length} device(s)? Their audit history is kept.`)) return;
+          run.mutate();
+        }}
+      >
+        Apply
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onDone}>
+        Clear selection
+      </Button>
+      {result && <span className="text-green-700 dark:text-green-400">{result}</span>}
+      <ErrorText error={run.error} />
+    </div>
   );
 }

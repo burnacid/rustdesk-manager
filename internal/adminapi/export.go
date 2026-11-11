@@ -15,7 +15,7 @@ import (
 	"rustdesk-manager/internal/db"
 )
 
-// GET /admin/api/audit/{kind}/export?device=&from=&to=  (kind: conns, files, alarms)
+// GET /admin/api/audit/{kind}/export?device=&from=&to=  (kind: conns, files, alarms, admin)
 // Streams a CSV with the same filters as the list. Times are UTC, RFC 3339.
 
 var connTypes = map[int]string{0: "Remote control", 1: "File transfer", 2: "Port forward", 3: "Camera", 4: "Terminal"}
@@ -73,18 +73,26 @@ func (a *API) exportAudit(w http.ResponseWriter, r *http.Request) {
 	case "alarms":
 		model, timeCol = &db.AuditAlarm{}, "created_at"
 		header = []string{"Time", "Device ID", "Device", "Alarm", "Details"}
+	case "admin":
+		model = &db.AdminEvent{}
+		header = []string{"Time", "User", "Action", "Method", "Route", "Target ID", "Status", "IP", "Via"}
 	default:
 		http.NotFound(w, r)
 		return
 	}
-	tx := auditFilters(a.db.Model(model), r, timeCol)
+	var tx *gorm.DB
+	if kind == "admin" {
+		tx = adminEventFilters(a.db.Model(model), r)
+	} else {
+		tx = auditFilters(a.db.Model(model), r, timeCol)
+	}
 	if kind == "conns" {
 		if p := r.URL.Query().Get("peer"); p != "" {
 			tx = tx.Where("peer_id = ?", p)
 		}
 	}
 
-	name := fmt.Sprintf("rustdesk-%s-%s.csv", map[string]string{"conns": "sessions", "files": "file-transfers", "alarms": "alarms"}[kind],
+	name := fmt.Sprintf("rustdesk-%s-%s.csv", map[string]string{"conns": "sessions", "files": "file-transfers", "alarms": "alarms", "admin": "admin-actions"}[kind],
 		time.Now().UTC().Format("2006-01-02"))
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
@@ -138,6 +146,17 @@ func (a *API) exportAudit(w http.ResponseWriter, r *http.Request) {
 				created := f.CreatedAt
 				_ = cw.Write([]string{ts(&created), cell(f.DeviceID), cell(names[f.DeviceID]), cell(f.PeerID), cell(info.Name),
 					cell(info.IP), dir, cell(f.Path), strconv.Itoa(info.Num), cell(strings.Join(files, "; "))})
+			}
+			cw.Flush()
+			return cw.Error()
+		}).Error
+	case "admin":
+		var batch []db.AdminEvent
+		err = tx.Order("id").FindInBatches(&batch, 1000, func(_ *gorm.DB, _ int) error {
+			for _, e := range batch {
+				at := e.CreatedAt
+				_ = cw.Write([]string{ts(&at), cell(e.UserName), describeEvent(e.Method, e.Route), e.Method, cell(e.Route),
+					cell(e.TargetID), strconv.Itoa(e.Status), cell(e.IP), e.Via})
 			}
 			cw.Flush()
 			return cw.Error()

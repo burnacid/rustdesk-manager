@@ -20,7 +20,8 @@ type Config struct {
 	AdminPassword string // initial admin password; generated and logged if empty
 	SessionSecret string // signs admin UI session cookies
 	LogLevel      string
-	TrustProxy    bool // use X-Forwarded-For / X-Real-IP (only behind your own reverse proxy)
+	TrustProxy    bool   // use X-Forwarded-For / X-Real-IP (only behind your own reverse proxy)
+	MetricsToken  string // enables /metrics; scrapers send it as a Bearer token
 }
 
 func env(key, def string) string {
@@ -42,6 +43,7 @@ func Load() (*Config, error) {
 		SessionSecret: env("SESSION_SECRET", ""),
 		LogLevel:      env("LOG_LEVEL", "info"),
 		TrustProxy:    env("TRUST_PROXY", "false") == "true",
+		MetricsToken:  env("METRICS_TOKEN", ""),
 	}
 	if c.DBDriver != "sqlite" && c.DBDriver != "mysql" {
 		return nil, fmt.Errorf("DB_DRIVER must be sqlite or mysql, got %q", c.DBDriver)

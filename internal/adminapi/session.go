@@ -14,6 +14,7 @@ import (
 	"rustdesk-manager/internal/auth"
 	"rustdesk-manager/internal/db"
 	"rustdesk-manager/internal/httpx"
+	"rustdesk-manager/internal/metrics"
 	"rustdesk-manager/internal/sso"
 	"rustdesk-manager/internal/version"
 )
@@ -58,6 +59,7 @@ func (a *API) StartWebSession(w http.ResponseWriter, r *http.Request, u *db.User
 	})
 	a.db.Model(u).Update("last_login_at", time.Now().UTC())
 	slog.Info("web login", "user", u.Name, "ip", remoteIP(r))
+	a.logEvent(r, u, http.MethodPost, "/auth/login", "", http.StatusOK)
 	return nil
 }
 
@@ -83,6 +85,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, auth.ErrInvalid) {
 			a.limiter.Fail(ipKey)
 			a.limiter.Fail(userKey)
+			metrics.Login("web", false)
 			slog.Warn("web login failed", "user", req.Username, "ip", remoteIP(r))
 			httpx.Error(w, http.StatusUnauthorized, "invalid username or password")
 			return
@@ -95,6 +98,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.limiter.Reset(userKey)
+	metrics.Login("web", true)
 	if err := a.StartWebSession(w, r, u); err != nil {
 		serverError(w, err)
 		return
@@ -132,10 +136,12 @@ func (a *API) login2FA(w http.ResponseWriter, r *http.Request) {
 		a.pending.Fail(req.Ticket)
 		a.limiter.Fail(ipKey)
 		a.limiter.Fail("user:" + strings.ToLower(u.Name))
+		metrics.Login("web", false)
 		httpx.Error(w, http.StatusUnauthorized, "wrong code")
 		return
 	}
 	a.pending.Done(req.Ticket)
+	metrics.Login("web", true)
 	if err := a.StartWebSession(w, r, &u); err != nil {
 		serverError(w, err)
 		return
@@ -165,6 +171,9 @@ func (a *API) ssoStart(w http.ResponseWriter, r *http.Request) {
 // POST /admin/api/auth/logout
 func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(sessionCookie); err == nil {
+		if u := a.sessionUser(r); u != nil {
+			a.logEvent(r, u, http.MethodPost, "/auth/logout", "", http.StatusNoContent)
+		}
 		_ = auth.Revoke(a.db, c.Value)
 	}
 	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true})

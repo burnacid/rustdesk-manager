@@ -20,6 +20,7 @@ import (
 const (
 	KindClient = "client" // RustDesk app login (Bearer token)
 	KindWeb    = "web"    // admin UI session (cookie)
+	KindAPI    = "api"    // admin API token for scripts (Bearer)
 
 	WebSessionTTL = 12 * time.Hour
 )

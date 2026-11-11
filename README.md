@@ -10,8 +10,9 @@ with the web console built in, and runs on SQLite or MariaDB/MySQL.
 
 - **Devices**: every machine that uses your server shows up with its hardware, OS and
   signed-in user, live online status, and active sessions you can disconnect.
-- **Audit log**: sessions (who connected, from where, how they logged in, how long),
-  file transfers and security alarms. Filter and export as CSV.
+- **Audit log**: sessions (who connected, from where, how they logged in, how long,
+  and the note left at the end), file transfers, security alarms, and every change
+  made in the console. Filter and export as CSV.
 - **Users and groups**: accounts for the RustDesk app's Login button, with an
   "Accessible devices" tab showing what each person may see.
 - **Address books**: a personal book per user and shared books with read-only,
@@ -19,11 +20,12 @@ with the web console built in, and runs on SQLite or MariaDB/MySQL.
   (encrypted), so members connect without typing them.
 - **Strategies**: push RustDesk settings (clipboard, file transfer, how sessions are
   accepted, IP whitelist, …) to devices or device groups within seconds.
-- **Security**: 2FA with authenticator apps, single sign-on with any OpenID Connect
+- **Security**: 2FA with authenticator apps, passkeys for the console, single sign-on with any OpenID Connect
   provider (Google, Microsoft Entra, Keycloak, Authentik, …), login rate limiting, and
   each RustDesk ID bound to the machine that first reported it.
 - **Rollout**: deploy tokens for install scripts (`rustdesk --assign`), and an option
   to only accept pre-registered machines.
+- **Automation**: API tokens for scripts, bulk device actions, and Prometheus metrics.
 - **Housekeeping**: automatic removal of old audit entries and recordings.
 - **Web console**: light and dark mode, works on phones.
 
@@ -112,6 +114,13 @@ RustDesk client refuses them.
 Each user turns it on under **My account**. Signing in to RustDesk and to the console
 then asks for a 6-digit code. If someone loses their phone, an admin turns it off
 under **Users → Edit**.
+
+### Passkeys
+Under **My account → Passkeys**, add a passkey (fingerprint, face, device PIN or a
+security key). The console login page then offers **Sign in with a passkey**, with no
+password or 2FA code. Passkeys are for the web console only; the RustDesk app has no
+passkey login. Browsers only allow them when the console is opened at the address in
+`PUBLIC_URL`, over HTTPS (plain `http://localhost` also works for testing).
 
 ### Single sign-on
 Under **Settings → Single sign-on**, add a provider and register the redirect URL
@@ -214,6 +223,22 @@ One-time setup: `docker login` (Docker Hub) and `gh auth login` (GitHub CLI). Us
 `-NoGitHubRelease` to skip the GitHub release. If a step fails after the commit, the
 script prints the commands that finish the release by hand.
 
+### Scripts and monitoring
+- **API tokens** (**Settings → API tokens**): call the admin API from scripts with
+  `Authorization: Bearer <token>`, e.g.
+  `curl -H "Authorization: Bearer $TOKEN" https://rustdesk.example.com/admin/api/devices`.
+  The endpoints are the ones the console uses (`/admin/api/...`). A token acts as the
+  admin who created it and stops working when that admin is disabled, loses admin
+  rights or changes their password.
+- **Admin actions** (**Audit log → Admin actions**): who changed what, from which IP,
+  and whether it was the console or an API token. Request contents are not stored.
+- **Bulk actions**: tick devices on the **Devices** page to set their group, owner or
+  strategy, disconnect them or delete them at once.
+- **Prometheus**: set `METRICS_TOKEN`, then scrape `/metrics` with that token as a
+  bearer token (`authorization: {credentials: ...}` in the Prometheus job). It reports
+  devices (total and online), users, signed-in sessions, open remote sessions, audit
+  record counts and login attempts.
+
 ## Configuration
 
 | Variable | Default | Meaning |
@@ -227,6 +252,7 @@ script prints the commands that finish the release by hand.
 | `SESSION_SECRET` | generated into `DATA_DIR/session.secret` | Encryption key for stored secrets; keep it with your backups |
 | `TRUST_PROXY` | `false` | `true` behind your own reverse proxy |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
+| `METRICS_TOKEN` | empty (off) | Turns on `/metrics`; Prometheus sends it as a bearer token |
 
 Settings that can change at runtime (registered devices only, recording uploads,
 how long to keep old data, SSO providers, deploy tokens) are under **Settings** in
@@ -239,8 +265,16 @@ the web console.
 - **`rustdesk --deploy`** and login-required access control depend on RustDesk Server
   Pro's ID server, not just its API, so they aren't available with the open-source
   `hbbs`.
+- **Switch sides**: the desktop app registers a "switch grant" with the server before
+  swapping sides. Nothing in the open-source `hbbs` uses it, so this server only
+  answers in the expected format and stores nothing.
 - **The RustDesk name**: RustDesk is a trademark of its owners. This project is not
   affiliated with them; rename it if you publish it.
+
+## Testing with a real RustDesk client
+
+[docs/real-client-test.md](docs/real-client-test.md) is a step-by-step checklist for
+trying every feature with the standard RustDesk app.
 
 ## Development
 

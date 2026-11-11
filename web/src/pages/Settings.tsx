@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Plus } from "lucide-react";
 import { api, type DeployToken, type OIDCProvider, type ServerSettings } from "../lib/api";
-import { dateTime } from "../lib/format";
+import { dateTime, timeAgo } from "../lib/format";
 import { Badge, Button, Card, ErrorText, Field, Input, Loading, Modal, PageHeader, Select, Table, Td } from "../components/ui";
 
 export function Settings() {
@@ -13,6 +13,7 @@ export function Settings() {
         <General />
         <Providers />
         <DeployTokens />
+        <APITokens />
       </div>
     </>
   );
@@ -386,6 +387,116 @@ function DeployTokens() {
                 <option value="1">After 1 day</option>
                 <option value="7">After 7 days</option>
                 <option value="30">After 30 days</option>
+                <option value="0">Never</option>
+              </Select>
+            </Field>
+            <ErrorText error={create.error} />
+            <div className="flex justify-end">
+              <Button variant="primary" type="submit" disabled={create.isPending}>
+                Create
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+    </Card>
+  );
+}
+
+type APIToken = { id: number; name: string; owner: string; last_used_at: string; expires_at: string | null; created_at: string };
+
+function APITokens() {
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: ["api-tokens"], queryFn: () => api<APIToken[]>("/api-tokens") });
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const [days, setDays] = useState("90");
+  const [created, setCreated] = useState<string | null>(null);
+  const create = useMutation({
+    mutationFn: () => api<{ token: string }>("/api-tokens", { method: "POST", body: { name, expires_days: Number(days) } }),
+    onSuccess: (res) => {
+      setCreated(res.token);
+      setName("");
+      qc.invalidateQueries({ queryKey: ["api-tokens"] });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (id: number) => api(`/api-tokens/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["api-tokens"] }),
+  });
+  const example = `curl -H "Authorization: Bearer ${created ?? "<token>"}" ${window.location.origin}/admin/api/devices`;
+
+  return (
+    <Card
+      title="API tokens"
+      actions={
+        <Button size="sm" variant="primary" onClick={() => setCreating(true)}>
+          <Plus size={14} /> New token
+        </Button>
+      }
+    >
+      <div className="space-y-2 border-b border-slate-200 px-4 py-3 text-sm dark:border-slate-800">
+        <p>
+          Let scripts use the admin API with full admin rights. A token acts as the admin who created it and stops working if that account is
+          disabled, loses admin rights or changes its password.
+        </p>
+        <CopyText text={example} />
+      </div>
+      {list.isPending ? (
+        <Loading />
+      ) : (
+        <Table head={["Name", "Created by", "Last used", "Expires", ""]} empty={(list.data ?? []).length === 0}>
+          {list.data?.map((t) => (
+            <tr key={t.id}>
+              <Td className="font-medium">{t.name}</Td>
+              <Td>{t.owner}</Td>
+              <Td>
+                <span title={dateTime(t.last_used_at)}>{Math.abs(Date.parse(t.last_used_at) - Date.parse(t.created_at)) < 2000 ? "Never" : timeAgo(t.last_used_at)}</span>
+              </Td>
+              <Td>{t.expires_at ? dateTime(t.expires_at) : "Never"}</Td>
+              <Td className="text-right">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={remove.isPending}
+                  onClick={() => confirm(`Revoke the API token "${t.name}"? Scripts using it stop working.`) && remove.mutate(t.id)}
+                >
+                  Revoke
+                </Button>
+              </Td>
+            </tr>
+          ))}
+        </Table>
+      )}
+      <Modal
+        title={created ? "Token created" : "New API token"}
+        open={creating}
+        onClose={() => {
+          setCreating(false);
+          setCreated(null);
+        }}
+      >
+        {created ? (
+          <div className="space-y-3 text-sm">
+            <p>Copy it now; it won&apos;t be shown again.</p>
+            <CopyText text={created} />
+          </div>
+        ) : (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              create.mutate();
+            }}
+          >
+            <Field label="Name">
+              <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Inventory sync" />
+            </Field>
+            <Field label="Expires">
+              <Select value={days} onChange={(e) => setDays(e.target.value)} className="w-full">
+                <option value="30">After 30 days</option>
+                <option value="90">After 90 days</option>
+                <option value="365">After 1 year</option>
                 <option value="0">Never</option>
               </Select>
             </Field>

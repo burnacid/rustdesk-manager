@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { ShieldCheck } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
+import { dateTime, timeAgo } from "../lib/format";
+import { createPasskey, passkeyError, passkeysSupported } from "../lib/passkey";
 import { useRefreshMe, useUser } from "../auth";
 import { Badge, Button, Card, ErrorText, Field, Input, PageHeader } from "../components/ui";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
@@ -16,6 +18,7 @@ export function Account() {
       </PageHeader>
       <div className="grid max-w-4xl gap-6 lg:grid-cols-2">
         <TwoFactor />
+        <Passkeys />
         <ChangePassword />
         <Card title="Appearance">
           <div className="space-y-2 p-4 text-sm">
@@ -112,6 +115,88 @@ function TwoFactor() {
             </Button>
           </>
         )}
+      </div>
+    </Card>
+  );
+}
+
+type PasskeyRow = { id: number; name: string; created_at: string; last_used_at: string | null };
+
+function Passkeys() {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const list = useQuery({ queryKey: ["passkeys"], queryFn: () => api<PasskeyRow[]>("/me/passkeys") });
+  const add = useMutation({
+    mutationFn: async () => {
+      const begin = await api<{ ticket: string; options: { publicKey: never } }>("/me/passkeys/register/begin", { method: "POST" });
+      let credential;
+      try {
+        credential = await createPasskey(begin.options);
+      } catch (err) {
+        throw passkeyError(err);
+      }
+      return api("/me/passkeys/register/finish", { method: "POST", body: { ticket: begin.ticket, name, credential } });
+    },
+    onSuccess: () => {
+      setName("");
+      qc.invalidateQueries({ queryKey: ["passkeys"] });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (id: number) => api(`/me/passkeys/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["passkeys"] }),
+  });
+  const rows = list.data ?? [];
+
+  return (
+    <Card title="Passkeys" actions={rows.length > 0 ? <Badge tone="green">{rows.length}</Badge> : <Badge>None</Badge>}>
+      <div className="space-y-4 p-4 text-sm">
+        <p>Sign in to this console with your fingerprint, face, device PIN or a security key. No password or code needed.</p>
+        {rows.length > 0 && (
+          <ul className="divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+            {rows.map((p) => (
+              <li key={p.id} className="flex items-center gap-3 px-3 py-2">
+                <KeyRound size={16} className="shrink-0 text-slate-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{p.name}</div>
+                  <div className="text-xs text-slate-500" title={dateTime(p.created_at)}>
+                    Added {timeAgo(p.created_at)}
+                    {p.last_used_at && ` · last used ${timeAgo(p.last_used_at)}`}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  aria-label={`Remove ${p.name}`}
+                  disabled={remove.isPending}
+                  onClick={() => confirm(`Remove the passkey "${p.name}"?`) && remove.mutate(p.id)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {passkeysSupported() ? (
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              add.mutate();
+            }}
+          >
+            <div className="min-w-40 flex-1">
+              <Field label="Name">
+                <Input placeholder="e.g. Work laptop" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />
+              </Field>
+            </div>
+            <Button variant="primary" type="submit" disabled={add.isPending}>
+              Add passkey
+            </Button>
+          </form>
+        ) : (
+          <p className="text-slate-500">This browser doesn&apos;t support passkeys.</p>
+        )}
+        <ErrorText error={add.error ?? remove.error ?? list.error} />
       </div>
     </Card>
   );

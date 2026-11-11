@@ -18,14 +18,14 @@ services:
     restart: unless-stopped
 
   manager:
-    image: rustdesk-manager:latest   # a loaded image file, or built from this folder:
-    build: .
+    image: burnacid/rustdesk-manager:latest   # a loaded image file, or built from this folder:
     ports: ["21114:21114"]
     volumes: [manager-data:/data]   # a named volume: the server runs as a non-root user
     environment:
       PUBLIC_URL: http://your-server:21114   # external URL, used for SSO redirects
       ADMIN_INITIAL_PASSWORD: change-me       # first start only
       # TRUST_PROXY: "true"                   # only behind your own HTTPS reverse proxy
+      # METRICS_TOKEN: long-random-string     # turns on /metrics for Prometheus
       DB_DRIVER: sqlite                       # or mysql (see below)
       # DB_DRIVER: mysql
       # DB_DSN: rustdesk:secret@tcp(mariadb:3306)/rustdesk?parseTime=true&charset=utf8mb4

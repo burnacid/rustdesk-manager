@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { KeyRound } from "lucide-react";
 import { api, type User } from "../lib/api";
+import { getPasskey, passkeyError, passkeysSupported } from "../lib/passkey";
 import { Button, ErrorText, Field, Input } from "../components/ui";
 import { Logo } from "../components/Logo";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
@@ -50,6 +52,19 @@ export function Login({ onLoggedIn }: { onLoggedIn: (u: User) => void }) {
       else if (res.user) onLoggedIn(res.user);
     });
   };
+
+  const signInWithPasskey = () =>
+    run(async () => {
+      const begin = await api<{ ticket: string; options: { publicKey: never } }>("/auth/passkey/begin", { method: "POST" });
+      let credential;
+      try {
+        credential = await getPasskey(begin.options);
+      } catch (err) {
+        throw passkeyError(err);
+      }
+      const res = await api<LoginResp>("/auth/passkey/finish", { method: "POST", body: { ticket: begin.ticket, credential } });
+      if (res.user) onLoggedIn(res.user);
+    });
 
   const submitCode = (e: FormEvent) => {
     e.preventDefault();
@@ -111,9 +126,14 @@ export function Login({ onLoggedIn }: { onLoggedIn: (u: User) => void }) {
                 {busy ? "Signing in…" : "Sign in"}
               </Button>
             </form>
-            {providers.data && providers.data.length > 0 && (
+            {(passkeysSupported() || (providers.data && providers.data.length > 0)) && (
               <div className="space-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
-                {providers.data.map((p) => (
+                {passkeysSupported() && (
+                  <Button type="button" disabled={busy} className="w-full" onClick={signInWithPasskey}>
+                    <KeyRound size={16} /> Sign in with a passkey
+                  </Button>
+                )}
+                {providers.data?.map((p) => (
                   <a
                     key={p.name}
                     href={`/admin/api/auth/sso/${encodeURIComponent(p.name)}`}

@@ -29,6 +29,7 @@ import (
 
 	"rustdesk-manager/internal/db"
 	"rustdesk-manager/internal/httpx"
+	"rustdesk-manager/internal/metrics"
 	"rustdesk-manager/internal/secret"
 )
 
@@ -214,6 +215,7 @@ func (s *Service) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	fail := func(public string, logErr error) {
 		if logErr != nil {
+			metrics.Login("sso", false)
 			slog.Warn("sso login failed", "err", logErr)
 		}
 		if sess.Kind == KindWeb {
@@ -261,6 +263,7 @@ func (s *Service) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		fail(err.Error(), nil)
 		return
 	}
+	metrics.Login("sso", true)
 	slog.Info("sso login", "provider", p.Name, "user", u.Name, "kind", sess.Kind)
 
 	if sess.Kind == KindWeb {
