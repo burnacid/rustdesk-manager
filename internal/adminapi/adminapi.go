@@ -147,6 +147,7 @@ func (a *API) Routes(r chi.Router) {
 		r.Get("/audit/conns", a.listAuditConns)
 		r.Get("/audit/files", a.listAuditFiles)
 		r.Get("/audit/alarms", a.listAuditAlarms)
+		r.Get("/audit/{kind}/export", a.exportAudit)
 	})
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
 		httpx.Error(w, http.StatusNotFound, "not found")

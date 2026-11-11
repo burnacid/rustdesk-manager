@@ -20,10 +20,12 @@ import (
 // GET /admin/api/settings
 func (a *API) getSettings(w http.ResponseWriter, _ *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{
-		"require_registered": a.settings.Bool(settings.RequireRegistered),
-		"accept_recordings":  a.settings.Bool(settings.AcceptRecordings),
-		"public_url":         a.cfg.PublicURL,
-		"oidc_redirect_url":  a.sso.RedirectURL(),
+		"require_registered":       a.settings.Bool(settings.RequireRegistered),
+		"accept_recordings":        a.settings.Bool(settings.AcceptRecordings),
+		"audit_retention_days":     a.settings.Int(settings.AuditRetentionDays),
+		"recording_retention_days": a.settings.Int(settings.RecordingRetentionDays),
+		"public_url":               a.cfg.PublicURL,
+		"oidc_redirect_url":        a.sso.RedirectURL(),
 	})
 }
 
@@ -32,6 +34,8 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RequireRegistered *bool `json:"require_registered"`
 		AcceptRecordings  *bool `json:"accept_recordings"`
+		AuditDays         *int  `json:"audit_retention_days"`
+		RecordingDays     *int  `json:"recording_retention_days"`
 	}
 	if err := httpx.Decode(r, &req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid request")
@@ -42,6 +46,19 @@ func (a *API) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.AcceptRecordings != nil {
 		_ = a.settings.SetBool(settings.AcceptRecordings, *req.AcceptRecordings)
+	}
+	for _, d := range []struct {
+		v   *int
+		key string
+	}{{req.AuditDays, settings.AuditRetentionDays}, {req.RecordingDays, settings.RecordingRetentionDays}} {
+		if d.v == nil {
+			continue
+		}
+		if *d.v < 0 || *d.v > 36500 {
+			httpx.Error(w, http.StatusBadRequest, "days must be between 0 (keep forever) and 36500")
+			return
+		}
+		_ = a.settings.SetInt(d.key, *d.v)
 	}
 	a.getSettings(w, r)
 }

@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
+import { Download } from "lucide-react";
 import { api, qs, type Alarm, type FileAudit, type Paged, type Session } from "../lib/api";
 import { alarmTypes, fileDirections, label } from "../lib/labels";
 import { bytes, dateTime } from "../lib/format";
@@ -30,7 +31,19 @@ export function Audit() {
 
   return (
     <>
-      <PageHeader title="Audit log">Sessions, file transfers and security alarms reported by your devices.</PageHeader>
+      <PageHeader
+        title="Audit log"
+        actions={
+          <a
+            href={`/admin/api/audit/${tab === "sessions" ? "conns" : tab}/export${qs(filters)}`}
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 text-base font-medium hover:bg-slate-50 sm:min-h-0 sm:px-3.5 sm:py-2 sm:text-sm dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+          >
+            <Download size={16} aria-hidden /> Export CSV
+          </a>
+        }
+      >
+        Sessions, file transfers and security alarms reported by your devices. The export uses the current tab and filters.
+      </PageHeader>
       <div className="mb-4 flex gap-1 border-b border-slate-200 dark:border-slate-800">
         {tabs.map((t) => (
           <button

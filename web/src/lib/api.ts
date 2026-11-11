@@ -37,6 +37,8 @@ export type User = { id: number; name: string; display_name: string; email: stri
 export type ServerSettings = {
   require_registered: boolean;
   accept_recordings: boolean;
+  audit_retention_days: number;
+  recording_retention_days: number;
   public_url: string;
   oidc_redirect_url: string;
 };

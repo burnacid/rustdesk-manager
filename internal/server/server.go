@@ -2,6 +2,7 @@
 package server
 
 import (
+	"context"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"rustdesk-manager/internal/abook"
 	"rustdesk-manager/internal/adminapi"
 	"rustdesk-manager/internal/auth"
+	"rustdesk-manager/internal/cleanup"
 	"rustdesk-manager/internal/clientapi"
 	"rustdesk-manager/internal/config"
 	"rustdesk-manager/internal/live"
@@ -25,10 +27,16 @@ import (
 )
 
 type Server struct {
-	cfg    *config.Config
-	db     *gorm.DB
-	client *clientapi.API
-	admin  *adminapi.API
+	cfg      *config.Config
+	db       *gorm.DB
+	client   *clientapi.API
+	admin    *adminapi.API
+	settings *settings.Store
+}
+
+// StartBackground runs housekeeping (old data cleanup) until ctx ends.
+func (s *Server) StartBackground(ctx context.Context) {
+	go cleanup.Run(ctx, s.db, s.settings, s.cfg.RecordingsDir())
 }
 
 func New(cfg *config.Config, gdb *gorm.DB) *Server {
@@ -45,7 +53,7 @@ func New(cfg *config.Config, gdb *gorm.DB) *Server {
 	admin := adminapi.New(adminapi.Deps{Cfg: cfg, DB: gdb, Live: state, Devices: client,
 		Limiter: limiter, Abooks: abooks, Strategies: strat, Box: box, Settings: store, SSO: ssoSvc})
 	ssoSvc.SetHooks(sso.Hooks{ClientLogin: client.IssueClientLogin, WebLogin: admin.StartWebSession})
-	return &Server{cfg: cfg, db: gdb, client: client, admin: admin}
+	return &Server{cfg: cfg, db: gdb, client: client, admin: admin, settings: store}
 }
 
 func (s *Server) Router() http.Handler {

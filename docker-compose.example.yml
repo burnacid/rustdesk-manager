@@ -24,6 +24,7 @@ services:
     environment:
       PUBLIC_URL: http://your-server:21114   # external URL, used for SSO redirects
       ADMIN_INITIAL_PASSWORD: change-me       # first start only
+      # TRUST_PROXY: "true"                   # only behind your own HTTPS reverse proxy
       DB_DRIVER: sqlite                       # or mysql (see below)
       # DB_DRIVER: mysql
       # DB_DSN: rustdesk:secret@tcp(mariadb:3306)/rustdesk?parseTime=true&charset=utf8mb4

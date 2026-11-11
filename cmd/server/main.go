@@ -36,14 +36,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	app := server.New(cfg, gdb)
 	srv := &http.Server{
 		Addr:              cfg.Listen,
-		Handler:           server.New(cfg, gdb).Router(),
+		Handler:           app.Router(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	app.StartBackground(ctx)
 	go func() {
 		slog.Info("listening", "addr", cfg.Listen, "db", cfg.DBDriver)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

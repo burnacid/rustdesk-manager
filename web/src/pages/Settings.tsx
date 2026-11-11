@@ -56,6 +56,7 @@ function General() {
           disabled={save.isPending}
           onChange={(v) => save.mutate({ accept_recordings: v })}
         />
+        <Retention settings={s.data} />
         <div className="px-4 py-3 text-sm">
           <span className="font-medium">Public URL</span>
           <span className="block font-mono text-slate-500">{s.data.public_url}</span>
@@ -66,6 +67,56 @@ function General() {
         <ErrorText error={save.error} />
       </div>
     </Card>
+  );
+}
+
+function Retention({ settings }: { settings: ServerSettings }) {
+  const qc = useQueryClient();
+  const [audit, setAudit] = useState(String(settings.audit_retention_days));
+  const [rec, setRec] = useState(String(settings.recording_retention_days));
+  const [saved, setSaved] = useState(false);
+  const save = useMutation({
+    mutationFn: () =>
+      api<ServerSettings>("/settings", {
+        method: "PATCH",
+        body: { audit_retention_days: Number(audit) || 0, recording_retention_days: Number(rec) || 0 },
+      }),
+    onSuccess: (data) => {
+      qc.setQueryData(["settings"], data);
+      setSaved(true);
+    },
+  });
+  return (
+    <form
+      className="space-y-3 px-4 py-3 text-sm"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setSaved(false);
+        save.mutate();
+      }}
+    >
+      <div>
+        <span className="font-medium">Keep old data</span>
+        <span className="block text-slate-500 dark:text-slate-400">
+          Older entries are deleted automatically once an hour. 0 keeps everything forever.
+        </span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Audit log (days)">
+          <Input type="number" min={0} max={36500} value={audit} onChange={(e) => setAudit(e.target.value)} />
+        </Field>
+        <Field label="Recordings (days)">
+          <Input type="number" min={0} max={36500} value={rec} onChange={(e) => setRec(e.target.value)} />
+        </Field>
+      </div>
+      <ErrorText error={save.error} />
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={save.isPending}>
+          Save
+        </Button>
+        {saved && <span className="text-green-700 dark:text-green-400">Saved</span>}
+      </div>
+    </form>
   );
 }
 
