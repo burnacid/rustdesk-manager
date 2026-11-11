@@ -189,6 +189,31 @@ docker compose up -d           # uses image: rustdesk-manager:latest
 The image is built for the processor of the machine that builds it (usually
 `linux/amd64`). For an ARM server such as a Raspberry Pi, add `--platform linux/arm64`.
 
+## Releasing
+
+Day-to-day work happens on the `develop` branch; `main` only receives releases. Note
+each change under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) as you go. To
+release, run from `develop` (PowerShell 7):
+
+```powershell
+./scripts/release.ps1 -Bump patch     # 0.1.0 -> 0.1.1; or -Bump minor / major, or -Version 1.0.0
+./scripts/release.ps1 -Bump minor -DryRun   # show every step, change nothing
+```
+
+It checks that your tree is clean and up to date, runs the tests, turns the Unreleased
+notes into the new version's section (or offers the commit messages if you didn't
+write any), updates `VERSION`, then asks before it:
+1. commits on `develop`, merges `develop` into `main` and tags `vX.Y.Z`;
+2. builds the image and pushes `burnacid/rustdesk-manager:X.Y.Z` and `:latest` to
+   Docker Hub;
+3. pushes `main`, `develop` and the tag;
+4. creates the GitHub release with the notes and the image file attached.
+
+One-time setup: `docker login` (Docker Hub) and `gh auth login` (GitHub CLI). Use
+`-Image name/rustdesk-manager` (or `$env:RDM_IMAGE`) for another Docker Hub name, and
+`-NoGitHubRelease` to skip the GitHub release. If a step fails after the commit, the
+script prints the commands that finish the release by hand.
+
 ## Configuration
 
 | Variable | Default | Meaning |

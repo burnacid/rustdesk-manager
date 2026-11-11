@@ -4,10 +4,15 @@ All notable changes to RustDesk Manager are listed here. Versions follow
 [semantic versioning](https://semver.org): while the version starts with 0, any
 release may change behaviour; from 1.0.0 on, breaking changes raise the first number.
 
-The version lives in the `VERSION` file. To release: update `VERSION`, add a section
-here, commit, tag it `v<version>` and build the image (see the README).
+Note changes under "Unreleased" as you work; `scripts/release.ps1` turns them into the
+next version's section (see "Releasing" in the README).
 
 ## [Unreleased]
+
+### Added
+- `scripts/release.ps1`: one command to release a version. It updates the version
+  and changelog, runs the tests, merges `develop` into `main`, tags the release,
+  publishes the Docker image to Docker Hub and creates the GitHub release.
 
 ## [0.1.0] - 2026-11-11
 
@@ -44,5 +49,5 @@ MariaDB), but has not yet been tried against a real RustDesk client.
 - `reset-password` and `version` commands.
 - SQLite or MariaDB/MySQL; a Docker image running as a non-root user.
 
-[Unreleased]: #unreleased
-[0.1.0]: #010---2026-11-11
+[Unreleased]: https://github.com/burnacid/rustdesk-manager/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/burnacid/rustdesk-manager/releases/tag/v0.1.0
