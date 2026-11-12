@@ -1,4 +1,4 @@
-import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, useEffect, useLayoutEffect, useRef } from "react";
+import { type AnchorHTMLAttributes, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import { X } from "lucide-react";
 
 const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
@@ -29,23 +29,33 @@ export function Card({ title, children, className, actions }: { title?: string; 
   );
 }
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" | "ghost"; size?: "sm" | "md" };
+type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+type ButtonSize = "sm" | "md";
+type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize };
+
+const buttonClass = (variant: ButtonVariant, size: ButtonSize, className?: string) =>
+  cx(
+    "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+    size === "sm" ? "min-h-10 px-3 text-sm sm:min-h-0 sm:px-2.5 sm:py-1 sm:text-xs" : "min-h-11 px-4 text-base sm:min-h-0 sm:px-3.5 sm:py-2 sm:text-sm",
+    variant === "primary" && "bg-teal-700 text-white hover:bg-teal-800",
+    variant === "secondary" && "border border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800",
+    variant === "danger" && "bg-red-600 text-white hover:bg-red-700",
+    variant === "ghost" && "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+    className,
+  );
 
 export function Button({ variant = "secondary", size = "md", className, ...props }: ButtonProps) {
-  return (
-    <button
-      {...props}
-      className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        size === "sm" ? "min-h-10 px-3 text-sm sm:min-h-0 sm:px-2.5 sm:py-1 sm:text-xs" : "min-h-11 px-4 text-base sm:min-h-0 sm:px-3.5 sm:py-2 sm:text-sm",
-        variant === "primary" && "bg-teal-700 text-white hover:bg-teal-800",
-        variant === "secondary" && "border border-slate-300 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800",
-        variant === "danger" && "bg-red-600 text-white hover:bg-red-700",
-        variant === "ghost" && "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
-        className,
-      )}
-    />
-  );
+  return <button {...props} className={buttonClass(variant, size, className)} />;
+}
+
+/** An `<a>` that looks like a Button, for links such as `rustdesk://` that the browser hands to another app. */
+export function LinkButton({
+  variant = "secondary",
+  size = "md",
+  className,
+  ...props
+}: AnchorHTMLAttributes<HTMLAnchorElement> & { variant?: ButtonVariant; size?: ButtonSize }) {
+  return <a {...props} className={buttonClass(variant, size, className)} />;
 }
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {

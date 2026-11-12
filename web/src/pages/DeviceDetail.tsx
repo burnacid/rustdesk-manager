@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FolderUp, MonitorUp } from "lucide-react";
+import { rustdeskLink } from "../lib/rustdesk";
 import { api, type AdminUser, type Device, type DeviceGroup, type EffectiveStrategy, type Paged, type Session, type Strategy } from "../lib/api";
 import { dateTime, timeAgo } from "../lib/format";
-import { Badge, Button, Card, ErrorText, Field, Input, Loading, Modal, OnlineBadge, PageHeader, Select } from "../components/ui";
+import { Badge, Button, Card, ErrorText, Field, Input, LinkButton, Loading, Modal, OnlineBadge, PageHeader, Select } from "../components/ui";
 import { SessionsTable } from "../components/SessionsTable";
 
 type Detail = {
@@ -98,6 +99,12 @@ export function DeviceDetail() {
         title={d.hostname || d.rustdesk_id}
         actions={
           <>
+            <LinkButton variant="primary" href={rustdeskLink("connect", d.rustdesk_id)} title="Opens the RustDesk app on this computer">
+              <MonitorUp size={16} /> Connect
+            </LinkButton>
+            <LinkButton href={rustdeskLink("file-transfer", d.rustdesk_id)} title="Opens the RustDesk app on this computer">
+              <FolderUp size={16} /> File transfer
+            </LinkButton>
             <Button onClick={() => setEditing(true)}>Edit</Button>
             <Button onClick={() => setConfirm("reset")}>Reset machine binding</Button>
             <Button variant="danger" onClick={() => setConfirm("delete")}>
