@@ -3,7 +3,9 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Link, useSearchParams } from "react-router";
 import { api, qs, type AdminUser, type Device, type DeviceGroup, type Paged, type Strategy } from "../lib/api";
 import { osShort, timeAgo } from "../lib/format";
-import { Badge, Button, Card, ErrorText, Input, Loading, OnlineBadge, PageHeader, Pagination, Select, Table, Td } from "../components/ui";
+import { MonitorUp } from "lucide-react";
+import { rustdeskLink } from "../lib/rustdesk";
+import { Badge, Button, Card, ErrorText, Input, LinkButton, Loading, OnlineBadge, PageHeader, Pagination, Select, Table, Td } from "../components/ui";
 
 const PAGE_SIZE = 50;
 
@@ -98,6 +100,9 @@ export function Devices() {
                 "Group",
                 "Version",
                 "Last seen",
+                <span key="actions" className="sr-only">
+                  Actions
+                </span>,
               ]}
               empty={list.data.data.length === 0}
             >
@@ -136,6 +141,16 @@ export function Devices() {
                   <Td>{d.group?.name ?? "—"}</Td>
                   <Td>{d.version || "—"}</Td>
                   <Td className="whitespace-nowrap">{d.online ? "now" : timeAgo(d.last_seen_at)}</Td>
+                  <Td className="text-right">
+                    <LinkButton
+                      size="sm"
+                      href={rustdeskLink("connect", d.rustdesk_id)}
+                      title="Opens the RustDesk app on this computer"
+                      aria-label={`Connect to ${d.hostname || d.rustdesk_id}`}
+                    >
+                      <MonitorUp size={14} /> Connect
+                    </LinkButton>
+                  </Td>
                 </tr>
               ))}
             </Table>
