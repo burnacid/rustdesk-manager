@@ -29,6 +29,33 @@ with the web console built in, and runs on SQLite or MariaDB/MySQL.
 - **Housekeeping**: automatic removal of old audit entries and recordings.
 - **Web console**: light and dark mode, works on phones.
 
+## Screenshots
+
+The screenshots below use sample data.
+
+![Dashboard with devices online, active sessions and recent alarms](docs/screenshots/dashboard.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/devices.png" alt="Devices list with status, owner, group and a Connect button per device"></td>
+    <td width="50%"><img src="docs/screenshots/device.png" alt="Device page with hardware details, the active session and recent sessions"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Devices</b>: live status, owner and group, and Connect to open the RustDesk app</td>
+    <td align="center"><b>Device page</b>: details, active sessions you can disconnect, history</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/audit.png" alt="Audit log of sessions with who connected, how they logged in and how long"></td>
+    <td width="50%"><img src="docs/screenshots/strategies.png" alt="Strategies that push RustDesk settings to devices and groups"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Audit log</b>: sessions, file transfers, alarms and admin actions</td>
+    <td align="center"><b>Strategies</b>: RustDesk settings pushed to devices and groups</td>
+  </tr>
+</table>
+
+![Devices list in dark mode](docs/screenshots/devices-dark.png)
+
 ## Quick start (Docker)
 
 ```sh
